@@ -6,7 +6,6 @@ import constants as const
 class Cosmology(object):
     def __init__(self, params={}):
         """
-
         :param params: dictionary containing cosmological params, if any value is not provided Planck15 values are used as defaults
         """
         if 'H_0' in params:
@@ -53,25 +52,33 @@ class Cosmology(object):
 
         self.T_nu = 0.7137658555036082 * self.T_cmb  # background neutrino temperature in K, the constant is (4/11)^(1/3)
 
+        relative_nu_density0 = self.get_relative_nu_density(0.)
         if 'omega_v' in params:
             self.omega_v = params['omega_v']
+            self.omega_k = 1. - self.omega_m - self.omega_v - self.omega_gamma * (1. + relative_nu_density0)
+        elif 'omega_k' in params:
+            self.omega_k = params['omega_k']
+            self.omega_v = 1. - self.omega_m - self.omega_gamma * (1. + relative_nu_density0) - self.omega_k
         else:
-            self.omega_v = 1. - self.omega_m - self.omega_gamma * (1. + self.get_relative_nu_density(0.))
+            self.omega_v = 1. - self.omega_m - self.omega_gamma * (1. + relative_nu_density0)
+            self.omega_k = 0.  # default is flat
 
         if 'omega_k' in params:
             self.omega_k = params['omega_k']
-        else:
-            self.omega_k = 1. - self.omega_m - self.omega_v - self.omega_gamma * (1. + self.get_relative_nu_density(0.))
 
-        if self.omega_m + self.omega_v + self.omega_k + self.omega_gamma * (1. + self.get_relative_nu_density(0.)) != 1.:
+        if not self.is_close(self.omega_m + self.omega_v + self.omega_k + self.omega_gamma * (1. + relative_nu_density0), 1.):
             print("Warning: the cosmological parameters are over-defined!")
+
+    @staticmethod
+    def is_close(a, b, rel_tol=1e-06, abs_tol=0.0):
+        return abs(a - b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
 
     def print_cosmology(self):
         """
-
         :return: nothing, prints out the cosmological parameters
         """
-        print("%.12f %.12f %.12f %.12f" % (self.omega_m, self.omega_gamma, self.omega_v, self.omega_k))
+        print("%.12f %.12f %.12f %.12f" % (self.omega_m, self.omega_gamma * (1. + self.get_relative_nu_density(0.)),
+                                           self.omega_v, self.omega_k))
 
     def get_relative_nu_density(self, z):
         """
@@ -89,7 +96,6 @@ class Cosmology(object):
 
     def get_e(self, z):
         """
-
         :param z: redshift
         :return: E(z)
         """
@@ -100,15 +106,15 @@ class Cosmology(object):
             return w(x) / (1. + x)"""
 
         if self.w_a == 0. and self.w_0 == -1.:
-            return np.sqrt(self.omega_m * (1. + z)**3 + self.omega_k * (1. + z)**2 + self.omega_gamma * (1. + z)**4 * (
-                1. + self.get_relative_nu_density(z)) + self.omega_v)
+            return (np.sqrt(self.omega_m * (1. + z)**3 + self.omega_k * (1. + z)**2 + self.omega_gamma * (1. + z)**4 *
+                           (1. + self.get_relative_nu_density(z)) + self.omega_v))
         else:
-            return np.sqrt(self.omega_m * (1. + z)**3 + self.omega_k * (1. + z)**2 + self.omega_gamma * (1. + z)**4 * (
-                1. + self.get_relative_nu_density(z)) + self.omega_v * (1 + z)**(3.*(1.+self.w_0+self.w_a)) * np.exp(-3.*self.w_a*z/(1.+z)))
+            return (np.sqrt(self.omega_m * (1. + z)**3 + self.omega_k * (1. + z)**2 + self.omega_gamma * (1. + z)**4 *
+                            (1. + self.get_relative_nu_density(z)) + self.omega_v * (1 + z)**(3.*(1.+self.w_0+self.w_a))
+                            * np.exp(-3.*self.w_a*z/(1.+z))))
 
     def get_comoving_distance(self, z):
         """
-
         :param z: redshift of the object
         :return: comoving distance to the object
         """
@@ -119,7 +125,6 @@ class Cosmology(object):
 
     def get_transverse_comoving_distance(self, z):
         """
-
         :param z: redshift of the object
         :return: transverse comoving distance to the ojbect, Hogg 1999
         """
@@ -135,15 +140,30 @@ class Cosmology(object):
 
     def get_angular_diameter_distance(self, z, z0=0.):
         """
-
         :param z: redshift of the target
         :param z0: initial redshift, default is 0
         :return: angular diameter distance to between redshifts z0 and z
         """
+        if z < z0: # swap the redshifts if initial redshift is larger
+            z, z0 = z0, z
+
         if z0 == 0.:
             return self.get_transverse_comoving_distance(z)/(1.+z)
         else:
             D_M1 = self.get_transverse_comoving_distance(z0)
             D_M2 = self.get_transverse_comoving_distance(z)
-            D_H = const.c_kms/self.H_0
-            return (D_M2 * np.sqrt( 1. + self.omega_k * D_M1**2 / D_H**2) - D_M1 * np.sqrt(1. + self.omega_k * D_M2**2 / D_H**2)) / (1.+z)
+            if self.omega_k == 0.:
+                return (D_M2 - D_M1 ) / (1.+z)
+            else:
+                D_H = const.c_kms/self.H_0
+                return (D_M2 * np.sqrt( 1. + self.omega_k * D_M1**2 / D_H**2) - D_M1 * np.sqrt(1. +
+                                                                            self.omega_k * D_M2**2 / D_H**2)) / (1.+z)
+
+    def get_time_delay_distance(self, z_d, z_s):
+        """
+        :param z_d: redshift of the deflector
+        :param z_s: redshift of the background source
+        :return: time delay distance of the strong lens in Mpc
+        """
+        return ((1+z_d)*self.get_angular_diameter_distance(z_d) * self.get_angular_diameter_distance(z_s)
+                / self.get_angular_diameter_distance(z_d, z_s))

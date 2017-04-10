@@ -1,5 +1,5 @@
 from astropy.cosmology import wCDM
-import cosmopy as cp
+from cosmopy import Cosmology
 import numpy as np
 
 n_sample = 300 # number of test samples
@@ -19,7 +19,7 @@ for item in params:
 
     # distance computed from cosmopy
     param = {'H_0':cos.H0.value, 'omega_m':cos.Om0, 'omega_v':cos.Ode0, 'omega_gamma':cos.Ogamma0, 'omega_k':cos.Ok0, 'w_0':cos.w0, 'sum_m_nu':0., 'N_eff':0.}
-    cosmo = cp.Cosmology(param)
+    cosmo = Cosmology(param)
     D_A = cosmo.get_angular_diameter_distance(0.5)
 
     assert isclose(D_A, D_A_ref)

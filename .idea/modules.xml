@@ -3,7 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/Cosmo.iml" filepath="$PROJECT_DIR$/.idea/Cosmo.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/cosmopy.iml" filepath="$PROJECT_DIR$/.idea/cosmopy.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/Cosmopy.iml" filepath="$PROJECT_DIR$/.idea/Cosmopy.iml" />
     </modules>
   </component>
 </project>
